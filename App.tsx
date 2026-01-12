@@ -18,8 +18,7 @@ import {
   updateDoc,
   arrayUnion,
   onSnapshot,
-  addDoc,
-  Timestamp
+  addDoc
 } from "firebase/firestore";
 import { GoogleGenAI } from "@google/genai";
 import { auth, db } from './firebaseConfig';
@@ -34,11 +33,11 @@ import {
   DownloadIcon,
   GiftIcon
 } from './components/Icons';
-import { Song, UserData, Playlist, Dedication } from './types';
-import { saveSongOffline } from './services/indexedDB';
+import { Song, UserData, Dedication } from './types';
+import { saveSongOffline, getAllOfflineSongs } from './services/indexedDB';
 
 // --- INITIALIZE AI ---
-const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
 // --- SHARED COMPONENTS ---
 
@@ -55,6 +54,8 @@ const Toast = ({ message, onClose }: { message: string; onClose: () => void }) =
   );
 };
 
+// --- MAIN APP COMPONENT ---
+
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -70,7 +71,7 @@ export default function App() {
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Sync state with local storage for "offline" feel
+  // Sync state with local storage
   useEffect(() => {
     const savedSong = localStorage.getItem('last_played');
     if (savedSong) {
@@ -108,9 +109,9 @@ export default function App() {
     setIsTriviaLoading(true);
     setSongTrivia('');
     try {
-      const response = await genAI.models.generateContent({
+      const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Provide one extremely interesting, short, and punchy trivia fact about the song "${song.title}" by "${song.artist}". Keep it under 25 words. Format: plain text only.`,
+        contents: `Provide one extremely interesting, short, and punchy trivia fact about the song "${song.title}" by "${song.artist}". Keep it under 20 words. Format: plain text only.`,
       });
       setSongTrivia(response.text || "No trivia available for this track.");
     } catch (error) {
@@ -196,11 +197,7 @@ export default function App() {
     <div className="h-screen flex items-center justify-center bg-[#0a0a0a]">
       <div className="flex flex-col items-center gap-4">
         <div className="text-4xl font-black text-purple-500 animate-pulse tracking-tighter">MUSICO</div>
-        <div className="w-12 h-1 bg-white/5 overflow-hidden rounded-full">
-          <div className="h-full bg-purple-500 w-1/2 animate-[loading_1s_infinite_linear]"></div>
-        </div>
       </div>
-      <style>{`@keyframes loading { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }`}</style>
     </div>
   );
 
@@ -224,7 +221,7 @@ export default function App() {
       <main className="flex-1 overflow-y-auto pb-40 hide-scrollbar px-6">
         {currentTab === 'home' && <HomeScreen songs={songs} onPlay={handlePlay} currentSong={currentSong} isPlaying={isPlaying} />}
         {currentTab === 'search' && <SearchScreen songs={songs} onPlay={handlePlay} currentSong={currentSong} isPlaying={isPlaying} />}
-        {currentTab === 'library' && <LibraryScreen userData={userData} songs={songs} onPlay={handlePlay} />}
+        {currentTab === 'library' && <LibraryScreen songs={songs} onPlay={handlePlay} />}
         {currentTab === 'profile' && (
           <ProfileScreen 
             userData={userData} 
@@ -389,23 +386,23 @@ function AuthScreen({ onToast }: { onToast: (m: string) => void }) {
         {!isLogin && (
           <input 
             type="text" placeholder="Full Name" required 
-            className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-purple-500 transition-all font-medium"
+            className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-purple-500 transition-all font-medium text-white"
             value={name} onChange={(e) => setName(e.target.value)}
           />
         )}
         <input 
           type="email" placeholder="Email Address" required 
-          className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-purple-500 transition-all font-medium"
+          className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-purple-500 transition-all font-medium text-white"
           value={email} onChange={(e) => setEmail(e.target.value)}
         />
         <input 
           type="password" placeholder="Password" required 
-          className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-purple-500 transition-all font-medium"
+          className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-purple-500 transition-all font-medium text-white"
           value={password} onChange={(e) => setPassword(e.target.value)}
         />
         <button 
           disabled={loading}
-          className="w-full py-5 bg-purple-600 rounded-2xl font-black text-lg hover:bg-purple-700 active:scale-95 transition-all shadow-2xl shadow-purple-900/40 disabled:opacity-50 mt-4"
+          className="w-full py-5 bg-purple-600 rounded-2xl font-black text-lg hover:bg-purple-700 active:scale-95 transition-all shadow-2xl shadow-purple-900/40 disabled:opacity-50 mt-4 text-white"
         >
           {loading ? 'WAITING...' : (isLogin ? 'LOG IN' : 'SIGN UP')}
         </button>
@@ -451,9 +448,9 @@ function HomeScreen({ songs, onPlay, currentSong, isPlaying }: { songs: Song[]; 
                 {currentSong?.id === song.id && isPlaying && (
                    <div className="absolute inset-0 bg-purple-600/30 backdrop-blur-sm flex items-center justify-center">
                       <div className="flex gap-1.5 items-end h-8">
-                        <div className="w-1 bg-white rounded-full animate-[equalizer_0.8s_infinite_ease-in-out]"></div>
-                        <div className="w-1 bg-white rounded-full animate-[equalizer_0.6s_infinite_ease-in-out_0.2s]"></div>
-                        <div className="w-1 bg-white rounded-full animate-[equalizer_1s_infinite_ease-in-out_0.4s]"></div>
+                        <div className="w-1 bg-white rounded-full animate-pulse h-4"></div>
+                        <div className="w-1 bg-white rounded-full animate-pulse h-6"></div>
+                        <div className="w-1 bg-white rounded-full animate-pulse h-3"></div>
                       </div>
                    </div>
                 )}
@@ -489,7 +486,6 @@ function HomeScreen({ songs, onPlay, currentSong, isPlaying }: { songs: Song[]; 
           ))}
         </div>
       </section>
-      <style>{`@keyframes equalizer { 0%, 100% { height: 4px; } 50% { height: 24px; } }`}</style>
     </div>
   );
 }
@@ -510,7 +506,7 @@ function SearchScreen({ songs, onPlay, currentSong, isPlaying }: { songs: Song[]
         <input 
           type="text" 
           placeholder="Search Universe..."
-          className="w-full py-5 pl-14 pr-6 bg-white/5 border border-white/10 rounded-3xl outline-none focus:border-purple-500 focus:bg-white/10 transition-all font-bold"
+          className="w-full py-5 pl-14 pr-6 bg-white/5 border border-white/10 rounded-3xl outline-none focus:border-purple-500 focus:bg-white/10 transition-all font-bold text-white"
           value={queryText}
           onChange={(e) => setQueryText(e.target.value)}
         />
@@ -534,7 +530,7 @@ function SearchScreen({ songs, onPlay, currentSong, isPlaying }: { songs: Song[]
           </div>
         ))}
         {queryText && filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-32 opacity-20">
+          <div className="flex flex-col items-center justify-center py-32 opacity-20 text-white">
              <SearchIcon size={64} />
              <p className="mt-4 font-black uppercase tracking-widest text-sm">Lost in Space</p>
           </div>
@@ -544,11 +540,11 @@ function SearchScreen({ songs, onPlay, currentSong, isPlaying }: { songs: Song[]
   );
 }
 
-function LibraryScreen({ userData, songs, onPlay }: { userData: UserData | null; songs: Song[]; onPlay: (s: Song) => void }) {
+function LibraryScreen({ songs, onPlay }: { songs: Song[]; onPlay: (s: Song) => void }) {
   const [offlineSongs, setOfflineSongs] = useState<any[]>([]);
 
   useEffect(() => {
-    import('./services/indexedDB').then(m => m.getAllOfflineSongs().then(setOfflineSongs));
+    getAllOfflineSongs().then(setOfflineSongs);
   }, []);
 
   return (
@@ -558,7 +554,7 @@ function LibraryScreen({ userData, songs, onPlay }: { userData: UserData | null;
       <section>
         <div className="flex justify-between items-center mb-6">
            <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Stored Offline</h3>
-           <span className="text-[10px] font-black bg-white/10 px-3 py-1 rounded-full">{offlineSongs.length} Tracks</span>
+           <span className="text-[10px] font-black bg-white/10 px-3 py-1 rounded-full text-white">{offlineSongs.length} Tracks</span>
         </div>
         <div className="space-y-3">
            {offlineSongs.map(s => (
@@ -584,14 +580,13 @@ function LibraryScreen({ userData, songs, onPlay }: { userData: UserData | null;
       <section>
         <div className="flex justify-between items-center mb-6">
            <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Collections</h3>
-           <button className="text-purple-500 text-[10px] font-black tracking-widest uppercase">+ New</button>
         </div>
         <div className="grid grid-cols-2 gap-5">
-           <div className="bg-gradient-to-br from-purple-600 to-indigo-700 aspect-square rounded-[2rem] p-6 flex flex-col justify-end shadow-xl shadow-purple-900/20 active:scale-95 transition-transform">
+           <div className="bg-gradient-to-br from-purple-600 to-indigo-700 aspect-square rounded-[2rem] p-6 flex flex-col justify-end shadow-xl shadow-purple-900/20 active:scale-95 transition-transform text-white">
               <span className="text-3xl mb-2">❤️</span>
               <p className="font-black text-lg leading-none">Liked<br/>Songs</p>
            </div>
-           <div className="bg-white/5 aspect-square rounded-[2rem] p-6 flex flex-col justify-end border border-white/10 active:scale-95 transition-transform">
+           <div className="bg-white/5 aspect-square rounded-[2rem] p-6 flex flex-col justify-end border border-white/10 active:scale-95 transition-transform text-white">
               <span className="text-3xl mb-2">🕒</span>
               <p className="font-black text-lg leading-none">Recent<br/>History</p>
            </div>
@@ -609,13 +604,13 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
   const [dedications, setDedications] = useState<Dedication[]>([]);
 
   useEffect(() => {
-    if (!userData) return;
+    if (!userData?.uid) return;
     const q = query(collection(db, 'dedications'), where('toUid', '==', userData.uid));
     const unsubscribe = onSnapshot(q, (snap) => {
       setDedications(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Dedication)));
-    });
+    }, (err) => console.error("Snapshot error:", err));
     return unsubscribe;
-  }, [userData]);
+  }, [userData?.uid]);
 
   const searchFriends = async () => {
     if (friendSearch.length < 2) return;
@@ -629,7 +624,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
   };
 
   const togglePrivacy = async () => {
-    if (!userData) return;
+    if (!userData?.uid) return;
     const newStatus = !userData.isPrivate;
     try {
       await updateDoc(doc(db, 'users', userData.uid), { isPrivate: newStatus });
@@ -641,7 +636,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
   };
 
   const handleAddFriend = async (targetUid: string) => {
-    if (!userData) return;
+    if (!userData?.uid) return;
     try {
       await updateDoc(doc(db, 'users', userData.uid), { friends: arrayUnion(targetUid) });
       await updateDoc(doc(db, 'users', targetUid), { friends: arrayUnion(userData.uid) });
@@ -652,7 +647,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
   };
 
   const sendDedicationSample = async (targetUid: string) => {
-    if (!userData || !songs.length) return;
+    if (!userData?.uid || !songs.length) return;
     const randomSong = songs[Math.floor(Math.random() * songs.length)];
     try {
       await addDoc(collection(db, 'dedications'), {
@@ -664,7 +659,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
         message: "Check out this banger! 🚀",
         timestamp: Date.now()
       });
-      onToast(`Dedicated ${randomSong.title} to friend!`);
+      onToast(`Dedicated ${randomSong.title}!`);
     } catch (e) {
       onToast("Dedication failed.");
     }
@@ -674,7 +669,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
     <div className="py-4 animate-slide-up">
       <div className="flex items-center justify-between mb-10">
         <h2 className="text-4xl font-black italic tracking-tighter">Universe Identity</h2>
-        <button onClick={() => setShowSettings(!showSettings)} className="w-12 h-12 flex items-center justify-center glass rounded-2xl active:rotate-90 transition-all">
+        <button onClick={() => setShowSettings(!showSettings)} className="w-12 h-12 flex items-center justify-center glass rounded-2xl active:rotate-90 transition-all text-white">
            <SettingsIcon size={24} />
         </button>
       </div>
@@ -684,7 +679,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
            <h4 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Identity Settings</h4>
            <div className="flex items-center justify-between">
               <div>
-                <p className="font-black text-sm">Ghost Mode (Private)</p>
+                <p className="font-black text-sm text-white">Ghost Mode (Private)</p>
                 <p className="text-[10px] text-white/40 font-bold">Only friends can see your activity</p>
               </div>
               <button 
@@ -694,7 +689,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
                 <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-lg ${userData?.isPrivate ? 'right-1' : 'left-1'}`}></div>
               </button>
            </div>
-           <button onClick={() => signOut(auth)} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black text-sm tracking-widest uppercase shadow-xl shadow-red-900/20 active:scale-95 transition-transform">Sign Out</button>
+           <button onClick={() => signOut(auth)} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black text-sm tracking-widest uppercase active:scale-95 transition-transform">Sign Out</button>
         </div>
       )}
 
@@ -702,15 +697,15 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
          <div className="relative group">
             <div className="absolute inset-0 bg-purple-500 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
             <img 
-              src={userData?.img || `https://ui-avatars.com/api/?name=${userData?.name}&background=6366f1&color=fff&size=256`} 
+              src={userData?.img || `https://ui-avatars.com/api/?name=${userData?.name || 'User'}&background=6366f1&color=fff&size=256`} 
               className="w-32 h-32 rounded-full border-[6px] border-[#0a0a0a] ring-2 ring-white/10 shadow-2xl object-cover relative z-10" 
               alt="" 
             />
          </div>
-         <h3 className="text-3xl font-black mt-6 tracking-tight">{userData?.name}</h3>
+         <h3 className="text-3xl font-black mt-6 tracking-tight text-white">{userData?.name || 'New Voyager'}</h3>
          <p className="text-purple-400 font-black uppercase tracking-[0.2em] text-[10px] mt-1">{userData?.isPremium ? 'Premium Voyager' : 'Musico Member'}</p>
          
-         <div className="grid grid-cols-3 w-full max-w-sm mt-10 p-6 glass rounded-[2rem]">
+         <div className="grid grid-cols-3 w-full max-w-sm mt-10 p-6 glass rounded-[2rem] text-white">
             <div className="text-center border-r border-white/5">
                <p className="font-black text-xl leading-none">{userData?.friends?.length || 0}</p>
                <p className="text-[9px] text-white/40 font-black uppercase tracking-widest mt-2">Friends</p>
@@ -737,7 +732,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
         <div className="grid grid-cols-2 gap-5">
           <div className="aspect-[4/5] glass rounded-[2rem] flex flex-col items-center justify-center border-2 border-dashed border-white/5 group cursor-pointer hover:border-purple-500/50 transition-all active:scale-95">
             <div className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-full group-hover:bg-purple-500 transition-colors">
-              <span className="text-2xl font-black group-hover:text-white">+</span>
+              <span className="text-2xl font-black group-hover:text-white text-white">+</span>
             </div>
             <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mt-4 group-hover:text-purple-500 transition-colors">Construct Playlist</p>
           </div>
@@ -750,7 +745,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
              <input 
                type="text" 
                placeholder="Search Voyagers..." 
-               className="flex-1 glass rounded-2xl p-4 outline-none font-bold placeholder:text-white/20"
+               className="flex-1 glass rounded-2xl p-4 outline-none font-bold placeholder:text-white/20 text-white"
                value={friendSearch}
                onChange={(e) => setFriendSearch(e.target.value)}
              />
@@ -765,11 +760,11 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
                     <div className="flex items-center gap-4">
                       <img src={u.img || `https://ui-avatars.com/api/?name=${u.name}`} className="w-12 h-12 rounded-2xl object-cover" />
                       <div>
-                        <p className="font-black text-sm">{u.name}</p>
+                        <p className="font-black text-sm text-white">{u.name}</p>
                         <p className="text-[10px] font-black text-white/30 uppercase">{u.isPrivate ? 'GHOST' : 'VISIBLE'}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleAddFriend(u.uid)} className="bg-purple-600 text-white text-[10px] font-black uppercase px-4 py-2 rounded-xl shadow-lg shadow-purple-900/20 active:scale-90 transition-transform">Connect</button>
+                    <button onClick={() => handleAddFriend(u.uid)} className="bg-purple-600 text-white text-[10px] font-black uppercase px-4 py-2 rounded-xl active:scale-90 transition-transform">Connect</button>
                  </div>
                ))}
             </div>
@@ -784,7 +779,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
                        <img src={`https://ui-avatars.com/api/?name=User&background=6366f1&color=fff`} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
-                       <p className="text-[11px] font-black truncate uppercase">VOYAGER</p>
+                       <p className="text-[11px] font-black truncate uppercase text-white">VOYAGER</p>
                        <button onClick={() => sendDedicationSample(fid)} className="text-[9px] font-black text-purple-400 uppercase tracking-widest hover:text-white transition-colors flex items-center gap-1 mt-0.5">
                          <GiftIcon size={10} /> Dedicate
                        </button>
@@ -804,7 +799,7 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
                 <div className="absolute top-0 right-0 p-5 opacity-5 group-hover:scale-150 transition-transform duration-700 text-purple-500"><GiftIcon size={64} /></div>
                 <div className="relative z-10">
                    <p className="text-[10px] font-black text-purple-400 uppercase tracking-[0.3em] mb-2">SIGNAL FROM {d.fromName}</p>
-                   <h5 className="text-2xl font-black leading-tight mb-2">{d.songTitle}</h5>
+                   <h5 className="text-2xl font-black leading-tight mb-2 text-white">{d.songTitle}</h5>
                    <p className="text-white/40 text-sm italic font-medium">"{d.message}"</p>
                    <button 
                      onClick={() => {
@@ -820,8 +815,8 @@ function ProfileScreen({ userData, songs, onPlay, setUserData, onToast }: { user
            ))}
            {dedications.length === 0 && (
               <div className="py-20 flex flex-col items-center opacity-10">
-                 <GiftIcon size={80} />
-                 <p className="mt-4 font-black uppercase tracking-widest text-xs">Inbox Empty</p>
+                 <GiftIcon size={80} color="white" />
+                 <p className="mt-4 font-black uppercase tracking-widest text-xs text-white">Inbox Empty</p>
               </div>
            )}
         </div>
