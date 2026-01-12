@@ -10,27 +10,30 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --accent: #a855f7;
+            --accent-glow: rgba(168, 85, 247, 0.4);
+            --bg-base: #0a0a0a;
+        }
+        [data-theme='midnight'] { --accent: #3b82f6; --accent-glow: rgba(59, 130, 246, 0.4); }
+        [data-theme='sunset'] { --accent: #f97316; --accent-glow: rgba(249, 115, 22, 0.4); }
+        [data-theme='ocean'] { --accent: #14b8a6; --accent-glow: rgba(20, 184, 166, 0.4); }
+        [data-theme='forest'] { --accent: #22c55e; --accent-glow: rgba(34, 197, 94, 0.4); }
+
         body {
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: contain;
-            background-color: #0a0a0a;
+            background-color: var(--bg-base);
             color: white;
+            transition: background-color 0.3s ease;
         }
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
-        }
-        .animate-slide-up {
-            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        
         .glass {
             background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(12px);
@@ -38,7 +41,20 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
         .player-gradient {
-            background: linear-gradient(to bottom, rgba(168, 85, 247, 0.15) 0%, #0a0a0a 100%);
+            background: linear-gradient(to bottom, var(--accent-glow) 0%, var(--bg-base) 100%);
+        }
+        .text-accent { color: var(--accent); }
+        .bg-accent { background-color: var(--accent); }
+        .border-accent { border-color: var(--accent); }
+        
+        @keyframes pulse-accent {
+            0%, 100% { transform: scale(1); opacity: 0.1; }
+            50% { transform: scale(1.1); opacity: 0.3; }
+        }
+        .animate-pulse-accent { animation: pulse-accent 2s infinite ease-in-out; }
+
+        input:focus, textarea:focus {
+            border-color: var(--accent);
         }
     </style>
 <script type="importmap">

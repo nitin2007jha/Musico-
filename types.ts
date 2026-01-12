@@ -16,6 +16,17 @@ export interface CoinTransaction {
   timestamp: number;
 }
 
+export interface Playlist {
+  id: string;
+  name: string;
+  description: string;
+  isPublic: boolean;
+  ownerId: string;
+  ownerName: string;
+  songIds: string[];
+  createdAt: number;
+}
+
 export interface UserData {
   uid: string;
   name: string;
@@ -24,6 +35,7 @@ export interface UserData {
   isPrivate: boolean;
   coins: number;
   isPremium: boolean;
+  theme: 'default' | 'midnight' | 'sunset' | 'ocean' | 'forest';
   friends: string[]; 
   likedSongs: string[];
   coinHistory: CoinTransaction[];
