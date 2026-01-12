@@ -8,12 +8,12 @@ export interface Song {
   url: string;
 }
 
-export interface Playlist {
+export interface CoinTransaction {
   id: string;
-  name: string;
-  isPublic: boolean;
-  ownerId: string;
-  songs: string[]; // IDs
+  type: 'earn' | 'spend';
+  amount: number;
+  description: string;
+  timestamp: number;
 }
 
 export interface UserData {
@@ -24,8 +24,9 @@ export interface UserData {
   isPrivate: boolean;
   coins: number;
   isPremium: boolean;
-  friends: string[]; // UIDs
-  friendRequests: string[]; // UIDs
+  friends: string[]; 
+  likedSongs: string[];
+  coinHistory: CoinTransaction[];
 }
 
 export interface Dedication {
