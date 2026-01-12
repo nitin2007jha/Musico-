@@ -1,0 +1,8 @@
+{
+  "name": "Musico - Social Music Universe",
+  "description": "A modern music streaming application with social features, private profiles, friend dedications, and offline playback capabilities.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
