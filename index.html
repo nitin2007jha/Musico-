@@ -26,7 +26,7 @@
             overscroll-behavior-y: contain;
             background-color: var(--bg-base);
             color: white;
-            transition: background-color 0.3s ease;
+            transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -54,7 +54,11 @@
         .animate-pulse-accent { animation: pulse-accent 2s infinite ease-in-out; }
 
         input:focus, textarea:focus {
-            border-color: var(--accent);
+            border-color: var(--accent) !important;
+        }
+
+        .custom-shadow {
+            box-shadow: 0 10px 40px -10px var(--accent-glow);
         }
     </style>
 <script type="importmap">
